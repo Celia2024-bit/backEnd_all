@@ -1,0 +1,8 @@
+flask
+flask-cors
+gunicorn
+edge-tts
+aiohttp
+baidu-aip
+chardet
+certifi

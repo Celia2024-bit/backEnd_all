@@ -77,16 +77,51 @@ def save_mastery():
 # --- 4. TTS ---
 @hsk_bp.route('/tts')
 def tts():
-    text = request.args.get('text')
+    # 获取参数
+    text = request.args.get('text', '')
+    # 默认声音设置为 Yunjian (Male)
+    voice_name = request.args.get('voice', 'Mandarin Male (Yunjian)')
+    # 获取语速参数，默认 0 (正常速度)
+    speed = request.args.get('speed', '0')
+
+    # 1. 声音映射（参考 tts_engine.py 的 VOICE_DICT）
+    VOICE_DICT = {
+        "Mandarin Female (Xiaoyi)": "zh-CN-XiaoyiNeural",
+        "Mandarin Female (Xiaoxiao)": "zh-CN-XiaoxiaoNeural",
+        "Mandarin Male (Yunxi)": "zh-CN-YunxiNeural",
+        "Mandarin Male (Yunjian)": "zh-CN-YunjianNeural",
+        "Mandarin Male (Yunxia)": "zh-CN-YunxiaNeural",
+        "Mandarin Male (Yunyang)": "zh-CN-YunyangNeural",
+    }
+    selected_voice = VOICE_DICT.get(voice_name, "zh-CN-YunjianNeural")
+
+    # 2. 语速格式化（参考 tts_engine.py 的 rate_str 逻辑）
     try:
+        speed_val = int(speed)
+        # 限制范围在 -50% 到 +100% 之间，防止数值过大导致接口报错
+        speed_val = max(-100, min(100, speed_val))
+        rate_str = f"{speed_val:+d}%"
+    except ValueError:
+        rate_str = "+0%"
+
+    try:
+        # 异步生成逻辑
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        communicate = edge_tts.Communicate(text, 'zh-CN-YunjianNeural')
+        
+        # 传入 rate 和 voice 参数
+        communicate = edge_tts.Communicate(text, selected_voice, rate=rate_str)
         audio_stream = io.BytesIO()
+        
         async def stream():
             async for chunk in communicate.stream():
-                if chunk["type"] == "audio": audio_stream.write(chunk["data"])
+                if chunk["type"] == "audio": 
+                    audio_stream.write(chunk["data"])
+        
         loop.run_until_complete(stream())
         audio_stream.seek(0)
+        
         return send_file(audio_stream, mimetype="audio/mpeg")
-    except Exception as e: return str(e), 500
+    except Exception as e: 
+        print(f"TTS Error: {e}")
+        return str(e), 500

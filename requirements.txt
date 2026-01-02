@@ -6,3 +6,4 @@ aiohttp
 baidu-aip
 chardet
 certifi
+requests

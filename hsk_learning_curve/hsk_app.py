@@ -40,7 +40,13 @@ def login():
 def get_user_data():
     username = request.args.get('username')
     p_res = supabase_request("GET", "user_progress", params={"username": f"eq.{username}"})
-    progress = p_res.json()[0] if p_res.json() else {"level": 1, "current_index": 0, "quiz_count": 20}
+    
+    # 确保返回 reading_index，如果数据库没有则默认为 0
+    if p_res.json():
+        progress = p_res.json()[0]
+        progress.setdefault("reading_index", 0)
+    else:
+        progress = {"level": 1, "current_index": 0, "quiz_count": 20, "reading_index": 0}
     
     m_res = supabase_request("GET", "word_mastery", params={"username": f"eq.{username}"})
     mastery = {item['char']: item['record'] for item in m_res.json()}
@@ -55,9 +61,13 @@ def save_progress():
         "username": username,
         "level": data.get('level'),
         "quiz_count": data.get('quizCount'),
-        "current_index": data.get('index')
+        "current_index": data.get('index'),
+        "reading_index": data.get('readingIndex') # 接收前端传来的 readingIndex
     }
-    # 使用 upsert
+    
+    # 过滤掉 None 值，防止误改数据库数据
+    payload = {k: v for k, v in payload.items() if v is not None}
+
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
     requests.post(f"{SUPABASE_URL}/rest/v1/user_progress", headers=headers, json=payload)
     return {"status": "success"}

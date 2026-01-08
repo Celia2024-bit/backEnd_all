@@ -51,8 +51,9 @@ def get_user_progress():
         progress.setdefault("level", 1)
         progress.setdefault("current_index", 0)
         progress.setdefault("quiz_count", 20)
+        progress.setdefault("quiz_remove_correct", False)
     else:
-        progress = {"level": 1, "current_index": 0, "quiz_count": 20, "reading_index": 0}
+        progress = {"level": 1, "current_index": 0, "quiz_count": 20, "reading_index": 0, "quiz_remove_correct": False}
     
     return jsonify(progress), 200
 
@@ -91,7 +92,8 @@ def save_progress():
         "level": data.get('level'),
         "quiz_count": data.get('quizCount'),
         "current_index": data.get('index'),
-        "reading_index": data.get('readingIndex')
+        "reading_index": data.get('readingIndex'),
+        "quiz_remove_correct": data.get('quizRemoveCorrect')
     }
     
     # 过滤掉 None 值，防止误改数据库数据

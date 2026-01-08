@@ -3,7 +3,6 @@ import io
 import requests
 import edge_tts
 from flask import Blueprint, request, send_file, jsonify
-# 确保 config.py 在同一目录下，或者在 Python 路径中
 from .config import SUPABASE_URL, HEADERS 
 
 hsk_bp = Blueprint('hsk_learning_curve', __name__)
@@ -35,34 +34,64 @@ def login():
         return jsonify({"status": "success", "username": data['username']}), 200
     return jsonify({"status": "error"}), 401
 
-# --- 2. 数据获取 ---
-@hsk_bp.route('/get_user_data', methods=['GET'])
-def get_user_data():
+# --- 2. 数据获取（拆分后）---
+@hsk_bp.route('/get_user_progress', methods=['GET'])
+def get_user_progress():
+    """单独获取用户学习进度（level/index/quiz_count等）"""
     username = request.args.get('username')
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+    
     p_res = supabase_request("GET", "user_progress", params={"username": f"eq.{username}"})
     
-    # 确保返回 reading_index，如果数据库没有则默认为 0
+    # 确保返回默认值，兼容新用户
     if p_res.json():
         progress = p_res.json()[0]
         progress.setdefault("reading_index", 0)
+        progress.setdefault("level", 1)
+        progress.setdefault("current_index", 0)
+        progress.setdefault("quiz_count", 20)
     else:
         progress = {"level": 1, "current_index": 0, "quiz_count": 20, "reading_index": 0}
     
-    m_res = supabase_request("GET", "word_mastery", params={"username": f"eq.{username}"})
-    mastery = {item['char']: item['record'] for item in m_res.json()}
-    return jsonify({"progress": progress, "mastery": mastery})
+    return jsonify(progress), 200
+
+@hsk_bp.route('/get_user_mastery', methods=['GET'])
+def get_user_mastery():
+    """单独获取用户单词熟练度数据"""
+    username = request.args.get('username')
+    level = request.args.get('level')  # 新增：支持按级别筛选，减少数据量
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+    
+    # 构建查询参数：用户名 + 可选级别筛选
+    params = {"username": f"eq.{username}"}
+    if level:
+        params["level"] = f"eq.{level}"
+    
+    m_res = supabase_request("GET", "word_mastery", params=params)
+    mastery = {}
+    for item in m_res.json():
+        # 键格式：level_char（保持和前端兼容）
+        key = f"{item.get('level')}_{item['char']}"
+        mastery[key] = item['record']
+        
+    return jsonify(mastery), 200
 
 # --- 3. 数据保存 ---
 @hsk_bp.route('/save_progress', methods=['POST'])
 def save_progress():
     data = request.json
     username = data.get('username')
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+    
     payload = {
         "username": username,
         "level": data.get('level'),
         "quiz_count": data.get('quizCount'),
         "current_index": data.get('index'),
-        "reading_index": data.get('readingIndex') # 接收前端传来的 readingIndex
+        "reading_index": data.get('readingIndex')
     }
     
     # 过滤掉 None 值，防止误改数据库数据
@@ -70,19 +99,26 @@ def save_progress():
 
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
     requests.post(f"{SUPABASE_URL}/rest/v1/user_progress", headers=headers, json=payload)
-    return {"status": "success"}
+    return jsonify({"status": "success"}), 200
 
 @hsk_bp.route('/save_mastery', methods=['POST'])
 def save_mastery():
     data = request.json
+    # 必传参数校验
+    required_fields = ['username', 'char', 'level', 'record']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({"error": f"{field} is required"}), 400
+    
     payload = {
         "username": data.get('username'),
         "char": data.get('char'),
+        "level": data.get('level'),
         "record": data.get('record')
     }
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
     requests.post(f"{SUPABASE_URL}/rest/v1/word_mastery", headers=headers, json=payload)
-    return {"status": "success"}
+    return jsonify({"status": "success"}), 200
 
 # --- 4. TTS ---
 @hsk_bp.route('/tts')
@@ -135,3 +171,63 @@ def tts():
     except Exception as e: 
         print(f"TTS Error: {e}")
         return str(e), 500
+        
+# --- 5. 用户自定义词库 (CRUD + Review List) ---
+@hsk_bp.route('/custom/cards', methods=['POST'])
+def add_custom_card():
+    """添加新卡片"""
+    data = request.json
+    payload = {
+        "username": data.get('username'),
+        "char": data.get('char'),
+        "pinyin": data.get('pinyin'),
+        "meaning": data.get('meaning'),
+        "explanation": data.get('explanation')
+    }
+
+    response = supabase_request("POST", "user_custom_cards", json_data=payload)
+    return jsonify({"status": "success"}), response.status_code
+
+@hsk_bp.route('/custom/cards/list/<username>', methods=['GET'])
+def get_custom_cards_list(username):
+    """获取用户所有的自定义卡片（管理页面用）"""
+    params = {
+        "username": f"eq.{username}",
+        "order": "created_at.desc" # 按创建时间倒序排列
+    }
+    response = supabase_request("GET", "user_custom_cards", params=params)
+    return jsonify(response.json()), response.status_code
+
+@hsk_bp.route('/custom/cards/review/<username>', methods=['GET'])
+def get_custom_review_list(username):
+    """获取自定义词库复习列表（按记忆曲线优先级）"""
+    limit = request.args.get('limit', 20, type=int)
+    # 筛选逻辑：熟练度低的优先 + 久未复习的优先
+    params = {
+        "username": f"eq.{username}",
+        "order": "mastery.asc,created_at.asc",
+        "limit": limit
+    }
+    response = supabase_request("GET", "user_custom_cards", params=params)
+    # 给无熟练度的卡片默认值
+    review_list = []
+    for card in response.json():
+        card.setdefault("mastery", 1)  # 默认熟练度1
+        card.setdefault("last_reviewed_at", None)
+        review_list.append(card)
+    return jsonify(review_list), response.status_code
+
+@hsk_bp.route('/custom/cards/item/<card_id>', methods=['PATCH', 'DELETE'])
+def handle_single_card(card_id):
+    """修改或删除特定卡片"""
+    params = {"id": f"eq.{card_id}"}
+    
+    if request.method == 'PATCH':
+        data = request.json
+        # 允许更新 mastery, pinyin, meaning, explanation 等
+        response = supabase_request("PATCH", "user_custom_cards", json_data=data, params=params)
+        return jsonify({"status": "updated"}), response.status_code
+        
+    elif request.method == 'DELETE':
+        response = supabase_request("DELETE", "user_custom_cards", params=params)
+        return jsonify({"status": "deleted"}), response.status_code

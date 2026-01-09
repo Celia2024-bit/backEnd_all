@@ -41,8 +41,15 @@ def get_user_progress():
     username = request.args.get('username')
     if not username:
         return jsonify({"error": "username is required"}), 400
+    level = request.args.get('level')  # 新增：支持按级别筛选，减少数据量
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+        
+    params = {"username": f"eq.{username}"}
+    if level:
+        params["level"] = f"eq.{level}"
     
-    p_res = supabase_request("GET", "user_progress", params={"username": f"eq.{username}"})
+    p_res = supabase_request("GET", "user_progress", params=params)
     
     # 确保返回默认值，兼容新用户
     if p_res.json():
@@ -61,6 +68,8 @@ def get_user_progress():
 def get_user_mastery():
     """单独获取用户单词熟练度数据"""
     username = request.args.get('username')
+    if not username:
+        return jsonify({"error": "username is required"}), 400
     level = request.args.get('level')  # 新增：支持按级别筛选，减少数据量
     if not username:
         return jsonify({"error": "username is required"}), 400

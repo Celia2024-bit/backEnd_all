@@ -200,25 +200,6 @@ def get_custom_cards_list(username):
     response = supabase_request("GET", "user_custom_cards", params=params)
     return jsonify(response.json()), response.status_code
 
-@hsk_bp.route('/custom/cards/review/<username>', methods=['GET'])
-def get_custom_review_list(username):
-    """获取自定义词库复习列表（按记忆曲线优先级）"""
-    limit = request.args.get('limit', 20, type=int)
-    # 筛选逻辑：熟练度低的优先 + 久未复习的优先
-    params = {
-        "username": f"eq.{username}",
-        "order": "mastery.asc,created_at.asc",
-        "limit": limit
-    }
-    response = supabase_request("GET", "user_custom_cards", params=params)
-    # 给无熟练度的卡片默认值
-    review_list = []
-    for card in response.json():
-        card.setdefault("mastery", 1)  # 默认熟练度1
-        card.setdefault("last_reviewed_at", None)
-        review_list.append(card)
-    return jsonify(review_list), response.status_code
-
 @hsk_bp.route('/custom/cards/item/<card_id>', methods=['PATCH', 'DELETE'])
 def handle_single_card(card_id):
     """修改或删除特定卡片"""

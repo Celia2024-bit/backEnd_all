@@ -35,34 +35,31 @@ def login():
     return jsonify({"status": "error"}), 401
 
 # --- 2. 数据获取（拆分后）---
+
+
 @hsk_bp.route('/get_user_progress', methods=['GET'])
 def get_user_progress():
-    """单独获取用户学习进度（level/index/quiz_count等）"""
     username = request.args.get('username')
     if not username:
         return jsonify({"error": "username is required"}), 400
-    level = request.args.get('level')  # 新增：支持按级别筛选，减少数据量
-    if not username:
-        return jsonify({"error": "username is required"}), 400
-        
+
+    level = request.args.get('level')
     params = {"username": f"eq.{username}"}
     if level:
         params["level"] = f"eq.{level}"
-    
+
     p_res = supabase_request("GET", "user_progress", params=params)
-    
-    # 确保返回默认值，兼容新用户
-    if p_res.json():
-        progress = p_res.json()[0]
-        progress.setdefault("reading_index", 0)
-        progress.setdefault("level", 1)
-        progress.setdefault("current_index", 0)
-        progress.setdefault("quiz_count", 20)
-        progress.setdefault("quiz_remove_correct", False)
-    else:
-        progress = {"level": 1, "current_index": 0, "quiz_count": 20, "reading_index": 0, "quiz_remove_correct": False}
-    
-    return jsonify(progress), 200
+    rows = p_res.json() or []
+    rows = [r for r in rows if r.get("record") is not None]
+
+    progress_map = {}
+    for r in rows:
+        lvl = str(r.get("level"))
+        progress_map[lvl] = r["record"]
+
+    # 有 level：map 只会包含那个 level；若没找到则为空 {}
+    return jsonify(progress_map), 200
+
 
 @hsk_bp.route('/get_user_mastery', methods=['GET'])
 def get_user_mastery():
@@ -71,8 +68,6 @@ def get_user_mastery():
     if not username:
         return jsonify({"error": "username is required"}), 400
     level = request.args.get('level')  # 新增：支持按级别筛选，减少数据量
-    if not username:
-        return jsonify({"error": "username is required"}), 400
     
     # 构建查询参数：用户名 + 可选级别筛选
     params = {"username": f"eq.{username}"}
@@ -89,27 +84,30 @@ def get_user_mastery():
     return jsonify(mastery), 200
 
 # --- 3. 数据保存 ---
+
 @hsk_bp.route('/save_progress', methods=['POST'])
 def save_progress():
     data = request.json
     username = data.get('username')
-    if not username:
-        return jsonify({"error": "username is required"}), 400
-    
+    level = data.get('level')
+    record = data.get('record')
+
+    if not username or level is None:
+        return jsonify({"error": "username and level are required"}), 400
+    if record is None:
+        return jsonify({"error": "record is required"}), 400
+
     payload = {
         "username": username,
-        "level": data.get('level'),
-        "quiz_count": data.get('quizCount'),
-        "current_index": data.get('index'),
-        "reading_index": data.get('readingIndex'),
-        "quiz_remove_correct": data.get('quizRemoveCorrect')
+        "level": level,
+        "record": record
     }
-    
-    # 过滤掉 None 值，防止误改数据库数据
-    payload = {k: v for k, v in payload.items() if v is not None}
 
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
-    requests.post(f"{SUPABASE_URL}/rest/v1/user_progress", headers=headers, json=payload)
+    res = requests.post(f"{SUPABASE_URL}/rest/v1/user_progress", headers=headers, json=payload)
+    if res.status_code >= 400:
+        return jsonify({"error": "save failed", "detail": res.text}), 500
+
     return jsonify({"status": "success"}), 200
 
 @hsk_bp.route('/save_mastery', methods=['POST'])

@@ -7,3 +7,5 @@ baidu-aip
 chardet
 certifi
 requests
+groq
+Werkzeug

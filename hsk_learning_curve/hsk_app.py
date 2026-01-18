@@ -103,7 +103,6 @@ def get_user_mastery():
     return jsonify(mastery), 200
 
 # --- 3. 数据保存 ---
-
 @hsk_bp.route('/save_progress', methods=['POST'])
 def save_progress():
     data = request.json
@@ -111,10 +110,9 @@ def save_progress():
     level = data.get('level')
     record = data.get('record')
 
-    if not username or level is None:
-        return jsonify({"error": "username and level are required"}), 400
-    if record is None:
-        return jsonify({"error": "record is required"}), 400
+    # 统一使用 is None 判断，允许 0 值通过，只拦截真正缺失的参数
+    if not username or level is None or record is None:
+        return jsonify({"error": "username, level, and record are required"}), 400
 
     payload = {
         "username": username,
@@ -122,30 +120,42 @@ def save_progress():
         "record": record
     }
 
+    # 使用 Prefer: resolution=merge-duplicates 处理唯一键冲突（upsert）
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
     res = requests.post(f"{SUPABASE_URL}/rest/v1/user_progress", headers=headers, json=payload)
+    
     if res.status_code >= 400:
-        return jsonify({"error": "save failed", "detail": res.text}), 500
+        return jsonify({"error": "save_progress failed", "detail": res.text}), 500
 
     return jsonify({"status": "success"}), 200
+
 
 @hsk_bp.route('/save_mastery', methods=['POST'])
 def save_mastery():
     data = request.json
-    # 必传参数校验
-    required_fields = ['username', 'char', 'level', 'record']
-    for field in required_fields:
-        if not data.get(field):
-            return jsonify({"error": f"{field} is required"}), 400
+    username = data.get('username')
+    char = data.get('char')
+    level = data.get('level')
+    record = data.get('record')
+
+    # 统一风格：显式检查所有必填字段是否缺失
+    if not username or not char or level is None or record is None:
+        return jsonify({"error": "username, char, level, and record are required"}), 400
     
     payload = {
-        "username": data.get('username'),
-        "char": data.get('char'),
-        "level": data.get('level'),
-        "record": data.get('record')
+        "username": username,
+        "char": char,
+        "level": level,
+        "record": record
     }
+
+    # 统一使用同样的 headers 进行数据合并写入
     headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
-    requests.post(f"{SUPABASE_URL}/rest/v1/word_mastery", headers=headers, json=payload)
+    res = requests.post(f"{SUPABASE_URL}/rest/v1/word_mastery", headers=headers, json=payload)
+    
+    if res.status_code >= 400:
+        return jsonify({"error": "save_mastery failed", "detail": res.text}), 500
+        
     return jsonify({"status": "success"}), 200
 
 # --- 4. TTS ---

@@ -3,7 +3,26 @@ import io
 import requests
 import edge_tts
 from flask import Blueprint, request, send_file, jsonify
+import os
+from google.cloud import texttospeech
 from .config import SUPABASE_URL, HEADERS 
+render_secret_path = "/etc/secrets/google-tts-key.json"
+
+# Render 上的绝对路径
+RENDER_PATH = "/etc/secrets/google-tts-key.json"
+# Windows 本地的绝对路径
+WINDOWS_PATH = r"C:\workspace\Personals\backEnd_all\google-tts-key.json"
+
+# --- 逻辑部分 ---
+if os.environ.get("RENDER"):
+    # 如果在 Render 环境
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = RENDER_PATH
+    print(f"正在使用 Render 环境凭据: {RENDER_PATH}")
+else:
+    # 否则默认为本地环境
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = WINDOWS_PATH
+    print(f"正在使用 Windows 本地凭据: {WINDOWS_PATH}")
+    
 
 hsk_bp = Blueprint('hsk_learning_curve', __name__)
 
@@ -132,54 +151,41 @@ def save_mastery():
 # --- 4. TTS ---
 @hsk_bp.route('/tts')
 def tts():
-    # 获取参数
     text = request.args.get('text', '')
-    # 默认声音设置为 Yunjian (Male)
-    voice_name = request.args.get('voice', 'Mandarin Male (Yunjian)')
-    # 获取语速参数，默认 0 (正常速度)
     speed = request.args.get('speed', '0')
-
-    # 1. 声音映射（参考 tts_engine.py 的 VOICE_DICT）
-    VOICE_DICT = {
-        "Mandarin Female (Xiaoyi)": "zh-CN-XiaoyiNeural",
-        "Mandarin Female (Xiaoxiao)": "zh-CN-XiaoxiaoNeural",
-        "Mandarin Male (Yunxi)": "zh-CN-YunxiNeural",
-        "Mandarin Male (Yunjian)": "zh-CN-YunjianNeural",
-        "Mandarin Male (Yunxia)": "zh-CN-YunxiaNeural",
-        "Mandarin Male (Yunyang)": "zh-CN-YunyangNeural",
-    }
-    selected_voice = VOICE_DICT.get(voice_name, "zh-CN-YunjianNeural")
-
-    # 2. 语速格式化（参考 tts_engine.py 的 rate_str 逻辑）
+    voice = request.args.get('voice', 'cmn-CN-Wavenet-A')  # 默认女声A
+    
     try:
-        speed_val = int(speed)
-        # 限制范围在 -50% 到 +100% 之间，防止数值过大导致接口报错
-        speed_val = max(-100, min(100, speed_val))
-        rate_str = f"{speed_val:+d}%"
-    except ValueError:
-        rate_str = "+0%"
-
-    try:
-        # 异步生成逻辑
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        client = texttospeech.TextToSpeechClient()
         
-        # 传入 rate 和 voice 参数
-        communicate = edge_tts.Communicate(text, selected_voice, rate=rate_str)
-        audio_stream = io.BytesIO()
+        synthesis_input = texttospeech.SynthesisInput(text=text)
         
-        async def stream():
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio": 
-                    audio_stream.write(chunk["data"])
+        voice_params = texttospeech.VoiceSelectionParams(
+            language_code="cmn-CN",
+            name=voice  # 直接使用传入的语音名称
+        )
         
-        loop.run_until_complete(stream())
-        audio_stream.seek(0)
+        # 处理语速：-50 到 +50 转为 0.5 到 1.5 倍速
+        speaking_rate = 1.0 + (int(speed) / 100)
+        speaking_rate = max(0.25, min(4.0, speaking_rate))
         
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=speaking_rate
+        )
+        
+        response = client.synthesize_speech(
+            input=synthesis_input,
+            voice=voice_params,
+            audio_config=audio_config
+        )
+        
+        audio_stream = io.BytesIO(response.audio_content)
         return send_file(audio_stream, mimetype="audio/mpeg")
-    except Exception as e: 
-        print(f"TTS Error: {e}")
-        return str(e), 500
+        
+    except Exception as e:
+        print(f"错误: {e}")
+        return jsonify({"error": str(e)}), 500
         
 # --- 5. 用户自定义词库 (CRUD + Review List) ---
 @hsk_bp.route('/custom/cards', methods=['POST'])

@@ -9,3 +9,4 @@ certifi
 requests
 groq
 Werkzeug
+google-cloud-texttospeech

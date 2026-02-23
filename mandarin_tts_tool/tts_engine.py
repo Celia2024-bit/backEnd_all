@@ -14,6 +14,7 @@ from pathlib import Path
 # --- 跨平台配置 ---
 # Windows/macOS通用语音字典
 VOICE_DICT = {
+    # --- Chinese (Mandarin) ---
     "Mandarin Female (Xiaoyi)": "zh-CN-XiaoyiNeural",  # Cartoon, Novel
     "Mandarin Female (Xiaoxiao)": "zh-CN-XiaoxiaoNeural",  # News, Novel
     "Mandarin Male (Yunxi)": "zh-CN-YunxiNeural",  # Novel
@@ -22,6 +23,24 @@ VOICE_DICT = {
     "Mandarin Male (Yunyang)": "zh-CN-YunyangNeural",  # News
     "Northeast Mandarin Female (Xiaobei)": "zh-CN-liaoning-XiaobeiNeural",  # Dialect
     "Shaanxi Mandarin Female (Xiaoni)": "zh-CN-shaanxi-XiaoniNeural",  # Dialect
+
+    # --- English (US) ---
+    "English US Female (Aria)": "en-US-AriaNeural",       # Expressive, versatile
+    "English US Female (Jenny)": "en-US-JennyNeural",     # Friendly, conversational
+    "English US Female (Michelle)": "en-US-MichelleNeural",  # Warm, soft
+    "English US Male (Guy)": "en-US-GuyNeural",           # News, narration
+    "English US Male (Davis)": "en-US-DavisNeural",       # Casual, expressive
+    "English US Male (Jason)": "en-US-JasonNeural",       # Clear, professional
+
+    # --- English (UK) ---
+    "English UK Female (Sonia)": "en-GB-SoniaNeural",     # Clear, professional
+    "English UK Female (Libby)": "en-GB-LibbyNeural",     # Friendly, natural
+    "English UK Male (Ryan)": "en-GB-RyanNeural",         # Warm, conversational
+    "English UK Male (Thomas)": "en-GB-ThomasNeural",     # Clear, measured
+
+    # --- English (AU) ---
+    "English AU Female (Natasha)": "en-AU-NatashaNeural", # Natural, friendly
+    "English AU Male (William)": "en-AU-WilliamNeural",   # Clear, professional
 }
 
 # --- 核心修复：SSL证书（跨平台）---

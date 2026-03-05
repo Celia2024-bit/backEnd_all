@@ -10,3 +10,5 @@ requests
 groq
 Werkzeug
 google-cloud-texttospeech
+psycopg2-binary 
+python-dotenv

@@ -41,6 +41,15 @@ VOICE_DICT = {
     # --- English (AU) ---
     "English AU Female (Natasha)": "en-AU-NatashaNeural", # Natural, friendly
     "English AU Male (William)": "en-AU-WilliamNeural",   # Clear, professional
+    
+    # --- French (France) ---
+    "French Female (Denise)": "fr-FR-DeniseNeural",
+    "French Female (Eloise)": "fr-FR-EloiseNeural",
+    "French Male (Henri)": "fr-FR-HenriNeural",
+    
+    # --- French (Canada) ---
+    "French Canadian Female (Sylvie)": "fr-CA-SylvieNeural",
+    "French Canadian Male (Jean)": "fr-CA-JeanNeural",
 }
 
 # --- 核心修复：SSL证书（跨平台）---

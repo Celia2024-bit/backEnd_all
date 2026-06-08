@@ -4,6 +4,7 @@ from flashcard_english.flashcard_app import flashcard_bp
 from mandarin_tts_tool.tts_app import tts_bp
 from hsk_learning_curve.hsk_app import hsk_bp
 from whisper_transcribe.whisper_app import whisper_bp
+from weight_tracker.weight_app import weight_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +28,7 @@ app.register_blueprint(flashcard_bp, url_prefix='/api/flashcard')
 app.register_blueprint(tts_bp, url_prefix='/api/tts')
 app.register_blueprint(hsk_bp, url_prefix='/api/hsk')
 app.register_blueprint(whisper_bp, url_prefix='/api/whisper')
+app.register_blueprint(weight_bp, url_prefix='/api/weight')
 
 if __name__ == "__main__":
     print("\n" + "="*60)

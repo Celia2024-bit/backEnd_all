@@ -4,7 +4,7 @@ from flashcard_english.flashcard_app import flashcard_bp
 from mandarin_tts_tool.tts_app import tts_bp
 from hsk_learning_curve.hsk_app import hsk_bp
 from whisper_transcribe.whisper_app import whisper_bp
-from weight_tracker.weight_app import weight_bp
+from weight_tracker.weight_app import weight_bp, waist_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -29,6 +29,7 @@ app.register_blueprint(tts_bp, url_prefix='/api/tts')
 app.register_blueprint(hsk_bp, url_prefix='/api/hsk')
 app.register_blueprint(whisper_bp, url_prefix='/api/whisper')
 app.register_blueprint(weight_bp, url_prefix='/api/weight')
+app.register_blueprint(waist_bp, url_prefix='/api/waist')
 
 if __name__ == "__main__":
     print("\n" + "="*60)
@@ -42,6 +43,8 @@ if __name__ == "__main__":
     print("  - /api/tts/*")
     print("  - /api/hsk/*")
     print("  - /api/whisper/*")
+    print("  - /api/weight/*")
+    print("  - /api/waist/*")
     print("\n" + "="*60 + "\n")
     
     app.run(host='0.0.0.0', port=5000, debug=True)

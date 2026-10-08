@@ -23,6 +23,12 @@ VOICE_DICT = {
     "Mandarin Male (Yunyang)": "zh-CN-YunyangNeural",  # News
     "Northeast Mandarin Female (Xiaobei)": "zh-CN-liaoning-XiaobeiNeural",  # Dialect
     "Shaanxi Mandarin Female (Xiaoni)": "zh-CN-shaanxi-XiaoniNeural",  # Dialect
+    
+    # --- Korean (韩国语) ---
+    "Korean Female (SunHi)": "ko-KR-SunHiNeural",       # 自然女声
+    "Korean Female (JiMin)": "ko-KR-JiMinNeural",       # 亲切女声
+    "Korean Male (InJoon)": "ko-KR-InJoonNeural",       # 标准男声
+    "Korean Male (BongJin)": "ko-KR-BongJinNeural",     # 沉稳男声
 
     # --- English (US) ---
     "English US Female (Aria)": "en-US-AriaNeural",       # Expressive, versatile
